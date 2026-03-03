@@ -7,7 +7,14 @@ name: Validate Sample
 # Actions documentation: https://docs.github.com/en/actions/reference
 
 on:
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
+    inputs:
+      sample_folder:
+        description: 'Sample folder path to validate (e.g. quickstarts/microsoft.resources/my-sample). Required when running on master.'
+        required: false
 
 permissions:
   contents: read
@@ -76,27 +83,34 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE"
 
-          # Files changed in this branch vs master, excluding non-sample paths
-          CHANGED_FILES=$(git diff --name-only origin/master...HEAD -- \
-            | grep -v "^\.github/" \
-            | grep -v "^test/" \
-            | grep -v "^1-CONTRIBUTION-GUIDE/" \
-            || true)
+          # If a sample folder was explicitly provided (workflow_dispatch), use it directly
+          if [ -n "${{ github.event.inputs.sample_folder }}" ]; then
+            SAMPLE_FOLDERS="${{ github.event.inputs.sample_folder }}"
+            FOLDER_COUNT=1
+            echo "Using manually specified sample folder: $SAMPLE_FOLDERS"
+          else
+            # Files changed in this branch vs master, excluding non-sample paths
+            CHANGED_FILES=$(git diff --name-only origin/master...HEAD -- \
+              | grep -v "^\.github/" \
+              | grep -v "^test/" \
+              | grep -v "^1-CONTRIBUTION-GUIDE/" \
+              || true)
 
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
 
-          # Collapse to unique top-level sample folders (depth-2 prefix, e.g. quickstarts/foo)
-          SAMPLE_FOLDERS=$(echo "$CHANGED_FILES" \
-            | awk -F'/' 'NF>=2 {print $1"/"$2}' \
-            | sort -u)
-          FOLDER_COUNT=$(echo "$SAMPLE_FOLDERS" | grep -c . || true)
+            # Collapse to unique top-level sample folders (depth-2 prefix, e.g. quickstarts/foo)
+            SAMPLE_FOLDERS=$(echo "$CHANGED_FILES" \
+              | awk -F'/' 'NF>=2 {print $1"/"$2}' \
+              | sort -u)
+            FOLDER_COUNT=$(echo "$SAMPLE_FOLDERS" | grep -c . || true)
 
-          echo "Candidate sample folders ($FOLDER_COUNT): $SAMPLE_FOLDERS"
+            echo "Candidate sample folders ($FOLDER_COUNT): $SAMPLE_FOLDERS"
 
-          if [ "$FOLDER_COUNT" -ne 1 ]; then
-            echo "::error::Expected exactly 1 changed sample folder, found $FOLDER_COUNT. Please limit each PR to a single sample."
-            exit 1
+            if [ "$FOLDER_COUNT" -ne 1 ]; then
+              echo "::error::Expected exactly 1 changed sample folder, found $FOLDER_COUNT. Please limit each PR to a single sample."
+              exit 1
+            fi
           fi
 
           SAMPLEFOLDER_PATH=$(echo "$SAMPLE_FOLDERS" | head -1)
@@ -166,7 +180,7 @@ jobs:
       # ── Phase 4: Reporting ────────────────────────────────────────────────────
 
       - name: Post summary comment
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
