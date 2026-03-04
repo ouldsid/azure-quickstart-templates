@@ -151,8 +151,8 @@ jobs:
           pwsh -noprofile -nologo -command "
             \$ErrorActionPreference = 'Stop'
             & '$GITHUB_WORKSPACE/test/ci-scripts/Validate-ReadMe.ps1' \
-              -SampleFolder '${{ env.SAMPLEFOLDER_PATH }}' \
-              -RepoRoot '$GITHUB_WORKSPACE'
+              -SampleFolder '$GITHUB_WORKSPACE/${{ env.SAMPLEFOLDER_PATH }}' \
+              -SampleName '${{ env.SAMPLEFOLDER_PATH }}'
           "
 
       - name: Run ARM TTK best practices tests

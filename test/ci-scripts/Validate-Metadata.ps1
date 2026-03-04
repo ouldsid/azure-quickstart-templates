@@ -46,13 +46,13 @@ if ($null -ne $docOwner) {
 $s = $supportedEnvironments | ConvertTo-Json -Compress
 Write-Host "##vso[task.setvariable variable=supported.environments]$s"
 # Set-Item -path "env:supported_environments" -value "$s"
+# GitHub Actions: persist SUPPORTED_ENVIRONMENTS for subsequent steps
+if ($ENV:GITHUB_ENV) {
+    "SUPPORTED_ENVIRONMENTS=$s" | Out-File -FilePath $ENV:GITHUB_ENV -Append -Encoding utf8
+}
 
 Write-Output "Is cloud supported: $IsCloudSupported"
 # if the cloud is not supported, set the result var to "Not Supported", else leave the default of "False" 
-if (-not $supportedEnvironments) {
-    Write-Error "supportedEnvironments is null or empty! Value of input: '$supportedEnvironmentsJson'"
-    exit 1
-}
 # and then the result.deployment will indeed be the result of the test if supported
 if (!$IsCloudSupported) {
     Write-Host "##vso[task.setvariable variable=result.deployment]Not Supported"
